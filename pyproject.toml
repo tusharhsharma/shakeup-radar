@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shakeup-radar"
+version = "0.1.0"
+description = "Calibrated Kaggle leaderboard shakeup risk from Meta Kaggle history"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Tushar S"}]
+keywords = ["kaggle", "leaderboard", "shakeup", "overfitting", "benchmark-reliability"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+]
+# stdlib only at runtime — a deliberate M2/M6 decision: nothing to break.
+dependencies = []
+
+[project.scripts]
+shakeup-radar = "shakeup_radar.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/tusharhsharma/shakeup-radar"
+
+[tool.setuptools.packages.find]
+include = ["shakeup_radar*"]
+
+[tool.setuptools.package-data]
+# fitted 2026-07-12 from the Meta Kaggle snapshot of that date (590
+# competitive comps); README's "bundled artifact" section documents it.
+shakeup_radar = ["artifact.json"]

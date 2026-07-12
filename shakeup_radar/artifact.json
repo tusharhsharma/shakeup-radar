@@ -1,0 +1,197 @@
+{
+ "alltime": {
+  "global": {
+   "n": 590,
+   "p25": 0.005024,
+   "p50": 0.025621,
+   "p75": 0.126061,
+   "p90": 0.50302
+  },
+  "lb_bucket": {
+   "large": {
+    "n": 150,
+    "p25": 0.008236,
+    "p50": 0.036082,
+    "p75": 0.11365,
+    "p90": 0.297504
+   },
+   "small": {
+    "n": 322,
+    "p25": 0.003888,
+    "p50": 0.013601,
+    "p75": 0.060057,
+    "p90": 0.198714
+   },
+   "tiny": {
+    "n": 118,
+    "p25": 0.009548,
+    "p50": 0.140948,
+    "p75": 0.862675,
+    "p90": 1.180992
+   }
+  },
+  "strata": {
+   "accuracy_like|l|small": {
+    "n": 15,
+    "p25": 0.024273,
+    "p50": 0.046186,
+    "p75": 0.094115,
+    "p90": null
+   },
+   "accuracy_like|m|small": {
+    "n": 17,
+    "p25": 0.006544,
+    "p50": 0.011995,
+    "p75": 0.064943,
+    "p90": null
+   },
+   "auc_rank|l|small": {
+    "n": 28,
+    "p25": 0.004631,
+    "p50": 0.008255,
+    "p75": 0.030519,
+    "p90": null
+   },
+   "auc_rank|m|small": {
+    "n": 25,
+    "p25": 0.005714,
+    "p50": 0.01753,
+    "p75": 0.054901,
+    "p90": null
+   },
+   "other|l|small": {
+    "n": 22,
+    "p25": 0.012224,
+    "p50": 0.025898,
+    "p75": 0.037722,
+    "p90": null
+   },
+   "other|m|large": {
+    "n": 22,
+    "p25": 0.019523,
+    "p50": 0.049869,
+    "p75": 0.166363,
+    "p90": null
+   },
+   "other|m|small": {
+    "n": 28,
+    "p25": 0.000181,
+    "p50": 0.010686,
+    "p75": 0.059285,
+    "p90": null
+   },
+   "reg_error|m|small": {
+    "n": 19,
+    "p25": 0.005013,
+    "p50": 0.015417,
+    "p75": 0.17354,
+    "p90": null
+   },
+   "reg_error|s|small": {
+    "n": 20,
+    "p25": 0.001272,
+    "p50": 0.015966,
+    "p75": 0.185163,
+    "p90": null
+   }
+  }
+ },
+ "holdout_report": {
+  "mae_alltime_median_baseline": 0.1621,
+  "mae_global_median_baseline": 0.1602,
+  "mae_improvement_pct": 8.8,
+  "mae_improvement_vs_alltime_pct": 9.8,
+  "mae_improvement_vs_recent_pct": 8.8,
+  "mae_model": 0.1461,
+  "mae_recent_median_baseline": 0.1602,
+  "n_test": 159,
+  "spearman_pred_vs_actual": 0.3207
+ },
+ "n_test_comps": 159,
+ "n_total_comps_in_tables": 590,
+ "n_train_comps": 431,
+ "note": "predictions served from the recent tier (shakeup regime is non-stationary; see recent_window_start); alltime is context. holdout_report is the honest generalization estimate.",
+ "population_stats": {
+  "excluded_future_deadline": 10,
+  "excluded_host:Analytics": 25,
+  "excluded_host:Community": 11104,
+  "excluded_host:Getting Started": 18,
+  "excluded_lb100": 56,
+  "excluded_small_comp": 10,
+  "kept": 625,
+  "total_rows": 11838
+ },
+ "recent": {
+  "global": {
+   "n": 181,
+   "p25": 0.008539,
+   "p50": 0.032804,
+   "p75": 0.151551,
+   "p90": 0.432479
+  },
+  "lb_bucket": {
+   "large": {
+    "n": 51,
+    "p25": 0.019619,
+    "p50": 0.041166,
+    "p75": 0.15589,
+    "p90": 0.25361
+   },
+   "small": {
+    "n": 109,
+    "p25": 0.006848,
+    "p50": 0.021944,
+    "p75": 0.066809,
+    "p90": 0.193987
+   },
+   "tiny": {
+    "n": 21,
+    "p25": 0.169864,
+    "p50": 0.97593,
+    "p75": 1.148419,
+    "p90": null
+   }
+  },
+  "strata": {
+   "auc_rank|l|small": {
+    "n": 15,
+    "p25": 0.005964,
+    "p50": 0.008293,
+    "p75": 0.029236,
+    "p90": null
+   },
+   "other|l|large": {
+    "n": 11,
+    "p25": 0.021343,
+    "p50": 0.030239,
+    "p75": 0.086126,
+    "p90": null
+   },
+   "other|l|small": {
+    "n": 16,
+    "p25": 0.013657,
+    "p50": 0.025898,
+    "p75": 0.042047,
+    "p90": null
+   },
+   "other|m|large": {
+    "n": 17,
+    "p25": 0.013559,
+    "p50": 0.04327,
+    "p75": 0.151551,
+    "p90": null
+   },
+   "other|m|small": {
+    "n": 21,
+    "p25": 0.003095,
+    "p50": 0.011414,
+    "p75": 0.060442,
+    "p90": null
+   }
+  }
+ },
+ "recent_window_start": "2022-07-07",
+ "target": "shakeup = 1 - spearman(public_rank, private_rank), range [0,2]",
+ "validation_split_date": "2023-01-01",
+ "version": "0.1.0"
+}
