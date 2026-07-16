@@ -17,7 +17,7 @@ Adversarial extras:
   - one lb_pct=100 comp (MUST be excluded, public==private by construction)
   - one comp with 10 teams (MUST be excluded, < MIN_TEAMS)
   - every comp carries one IsBenchmark row (must be excluded from ranks)
-Expected surviving comps: 90 + 16 + 4 = 110.
+Expected surviving comps: 90 + 16 + 20 (code regime) + 4 = 130.
 """
 import csv, os, random
 
@@ -42,7 +42,7 @@ def main():
     state = {"cid": 100, "tid": 0}
 
     def add_comp(metric, n_teams, lb_pct, sigma, year, host="Featured",
-                 drop_private_frac=0.0, tie_quantize=0):
+                 drop_private_frac=0.0, tie_quantize=0, code=False):
         state["cid"] += 1
         cid = state["cid"]
         comps.append({
@@ -51,6 +51,7 @@ def main():
             "EnabledDate": f"{year}-01-01 00:00:00",
             "DeadlineDate": f"{year}-06-01 00:00:00",
             "EvaluationAlgorithmAbbreviation": metric,
+            "OnlyAllowKernelSubmissions": str(code),
             "LeaderboardPercentage": "" if lb_pct is None else str(lb_pct),
             "TotalSubmissions": str(n_teams * 12),
             "TotalTeams": str(n_teams),
@@ -87,6 +88,10 @@ def main():
         add_comp("MAP@{K}", 200, 20.0, 10.0, 2019 + i % 4)
     for i in range(8):
         add_comp("MAP@{K}", 800, 20.0, 40.0, 2019 + i % 4)
+    # v0.2 planted regime: CODE comps, tiny LB, near-total shuffle — the
+    # modern hidden-test pattern (exercises the (lb,code) tier)
+    for i in range(20):
+        add_comp("AUC", 400, 10.0, 9999, 2019 + i % 6, code=True)
     # adversarial extras that must SURVIVE
     add_comp("AUC", 400, 30.0, 5.0, 2020, tie_quantize=5)          # ties
     add_comp("AUC", 400, 30.0, 5.0, 2021, drop_private_frac=0.3)   # missing ranks

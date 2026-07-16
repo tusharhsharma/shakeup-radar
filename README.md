@@ -16,8 +16,17 @@ field size, public-LB fraction), fitted from the public
 
 ```bash
 git clone <this repo> && cd shakeup-radar && pip install -e .
-shakeup-radar predict --metric AUC --teams 3500 --lb-pct 20
+shakeup-radar --metric AUC --teams 3500 --lb-pct 20 --code
 ```
+
+**v0.2:** pass `--code` / `--no-code` (is it a code competition with a hidden
+or re-run test set? — it says so on the competition page). This is the
+single most important input: the causal analysis in the companion notebook
+showed test-set construction, not leaderboard size itself, drives modern
+shakeup (within 2022+ tiny-LB comps: code median 1.07 vs non-code 0.00).
+Adding this one flag took holdout improvement from +6-15% (v0.1) to
++28-57% (v0.2), rank correlation to 0.60-0.63. Omitting it still works,
+with a hint and a coarser table.
 
 Works immediately: a fitted artifact (Meta Kaggle snapshot 2026-07-12,
 590 competitive competitions) ships with the package. To refit on fresh
@@ -65,12 +74,15 @@ demoted to context: an all-history table under-predicts modern tiny-LB
 shakeup by roughly 7×.
 
 **Validation.** Temporal holdout, model vs predict-the-median baselines:
-- Development estimate (split 2023-01-01, used during design iteration —
-  treat as optimistic): +8.8% MAE vs recent-median baseline, Spearman 0.32,
-  bootstrap 95% CI [1.6%, 14.2%].
-- **Confirmatory (design frozen, splits untouched during development):**
-  split 2024-01-01 → +6.2% MAE, Spearman 0.40 (n=99); split 2025-01-01 →
-  +14.7% MAE, Spearman 0.46 (n=59).
+- v0.1 (LB%/size/metric only): dev +8.8% (Spearman 0.32); frozen-design
+  confirmatory splits +6.2% (0.40) and +14.7% (0.46).
+- **v0.2 (adds test-set construction):** splits 2023/2024/2025 →
+  **+27.8% / +49.6% / +57.1%** MAE vs recent-median baseline, Spearman
+  0.37 / 0.63 / 0.60. Honesty note: the code-competition feature was
+  selected from a causal analysis that used all eras, so these are
+  design-informed estimates, not fully pre-registered ones — the evidence
+  for the feature is the within-era contrast (1.07 vs 0.00 in the same
+  years and LB bucket), not these deltas alone.
 
 The signal is modest for point prediction and strong for the thing the
 tool actually answers: *which regime is your competition in, and what did
@@ -110,7 +122,7 @@ in the source docstrings — it is the part of this tool that took the work.
 
 ## Provenance
 
-Built as instrument T-01 / research card K-04 of the personal project:
+Built as instrument T-01 / research card K-04 of the EdgeWatch project:
 "the public leaderboard reliably measures modeling skill" is a premise
 under saturation-watch, and this is its measurement instrument. The golden
 fixture plants three known noise regimes plus the adversarial cases found

@@ -4,7 +4,7 @@
       Fit the calibrated risk tables from Meta Kaggle. Validates on a
       temporal holdout (report printed — READ IT), then refits on all data.
 
-  shakeup-radar predict --metric AUC --teams 3500 --lb-pct 20 [--artifact f]
+  shakeup-radar predict --metric AUC --teams 3500 --lb-pct 20 [--code|--no-code]
       Deterministic risk estimate. --teams is the expected FINAL leaderboard
       size; mid-competition page counts include teams that never get a
       private rank, so if in doubt use the current count of SCORED teams
@@ -58,6 +58,10 @@ def main(argv=None):
     p.add_argument("--teams", type=int, required=True,
                    help="expected FINAL number of ranked teams")
     p.add_argument("--lb-pct", type=float, default=None)
+    p.add_argument("--code", action=argparse.BooleanOptionalAction, default=None,
+                   help="is this a code competition (hidden/rerun test set)? "
+                        "v0.2: test-set construction is the dominant factor — "
+                        "pass --code or --no-code for the sharper estimate")
     p.add_argument("--artifact", default=None)
 
     t = sub.add_parser("targets")
@@ -101,7 +105,7 @@ def main(argv=None):
         with open(path, encoding="utf-8") as fh:
             artifact = json.load(fh)
         fam = family_of(a.metric)
-        out = pipeline.predict(artifact, fam, a.teams, a.lb_pct)
+        out = pipeline.predict(artifact, fam, a.teams, a.lb_pct, a.code)
         if out is None:
             sys.exit("artifact has no usable table — refit")
         out["metric_family"] = fam

@@ -8,7 +8,7 @@ sys.path.insert(0, PKG)
 
 from shakeup_radar import pipeline  # noqa: E402
 
-EXPECTED_SURVIVORS = 110  # 90 regimes + 16 retrieval + 4 survivable extras
+EXPECTED_SURVIVORS = 130  # 90 regimes + 16 retrieval + 20 code regime + 4 extras
 
 
 def _load():
@@ -61,10 +61,18 @@ def test_artifact_fallback_chain_and_determinism():
     art2, _, _ = pipeline.fit_artifact(rows, pop_stats=stats)
     assert art1 == art2
     # exact recent-stratum hit (fixture max deadline 2024 -> recent = 2020+)
-    p = pipeline.predict(art1, "auc_rank", 5000, 50.0)
+    p = pipeline.predict(art1, "auc_rank", 5000, 50.0, code=False)
     assert p["provenance"].startswith("recent stratum"), p["provenance"]
     assert p["expected_shakeup_p50"] < 0.01
     assert "alltime_context_p50" in p
+    # v0.2: the code dimension separates the planted regimes sharing a bucket
+    pc = pipeline.predict(art1, "auc_rank", 400, 10.0, code=True)
+    assert pc["expected_shakeup_p50"] > 0.8, pc
+    pn = pipeline.predict(art1, "accuracy_like", 120, 10.0, code=False)
+    assert "hint" not in pc
+    # code unknown -> falls to lb-bucket tier with a hint
+    pu = pipeline.predict(art1, "auc_rank", 400, 10.0)
+    assert "hint" in pu and "lb-bucket" in pu["provenance"], pu
     # LB-BUCKET fallback (retrieval strata are 8+8 in each era window)
     q = pipeline.predict(art1, "retrieval", 200, 20.0)
     assert q["provenance"] == "recent lb-bucket small", q["provenance"]

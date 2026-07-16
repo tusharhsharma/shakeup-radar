@@ -164,6 +164,12 @@ def load_competitions(path, hosts=COMPETITIVE_HOSTS):
                 "host": host,
                 "metric": metric,
                 "family": family_of(metric),
+                # decision #29 (v0.2, from the causal analysis published in the
+                # notebook thread): code competitions (hidden/rerun test sets)
+                # are THE dominant shakeup factor — within 2022+ tiny-LB comps,
+                # code median 1.07 vs non-code 0.00. LB% was a proxy for this.
+                "code": (r.get("OnlyAllowKernelSubmissions") or "").strip().lower()
+                        in ("true", "1"),
                 "lb_pct": lb_pct,
                 "deadline": deadline.date().isoformat(),
                 "duration_days": (deadline - enabled).days if enabled else None,
@@ -225,7 +231,8 @@ def compute_targets(teams_path, comps, stats=None):
     return rows
 
 def stratum_key(row):
-    return (row["family"], team_bucket(row["n_ranked_teams"]), lb_bucket(row["lb_pct"]))
+    return (row["family"], team_bucket(row["n_ranked_teams"]),
+            lb_bucket(row["lb_pct"]), "code" if row.get("code") else "std")
 
 # decision #24 (real-data finding, 2026-07-12): the shakeup REGIME is
 # non-stationary. Tiny-LB comps: median shakeup ~0.02-0.08 pre-2019 but
@@ -258,6 +265,11 @@ def _tables(rows, min_n=MIN_STRATUM):
                                  else None}                    # decision #10
         return out
     full = table(stratum_key, rows)
+    # decision #29: (lb_bucket, code) mid-tier — the two features with proven
+    # discriminative power, jointly. Served only when the caller knows the
+    # competition's code status.
+    lb_code = table(lambda r: (lb_bucket(r["lb_pct"]),
+                               "code" if r.get("code") else "std"), rows)
     lb_only = table(lambda r: (lb_bucket(r["lb_pct"]),), rows)
     all_vals = sorted(r["shakeup"] for r in rows)
     glob = None
@@ -266,7 +278,7 @@ def _tables(rows, min_n=MIN_STRATUM):
                 "p25": quantile(all_vals, 0.25), "p50": quantile(all_vals, 0.50),
                 "p75": quantile(all_vals, 0.75),
                 "p90": quantile(all_vals, 0.90) if len(all_vals) >= P90_MIN else None}
-    return full, lb_only, glob
+    return full, lb_code, lb_only, glob
 
 def _recent_start(rows):
     if not rows:
@@ -296,15 +308,16 @@ def fit_artifact(rows, split_date=SPLIT_DATE, pop_stats=None):
     if not rows:
         return None, train, test
     start, recent, alltime = _tiers(rows)
-    if alltime[2] is None:
+    if alltime[3] is None:
         return None, train, test
-    def pack(triple):
-        full, lb_only, glob = triple
+    def pack(tier):
+        full, lb_code, lb_only, glob = tier
         return {"strata": {"|".join(k): v for k, v in full.items()},
+                "lb_code": {"|".join(k): v for k, v in lb_code.items()},
                 "lb_bucket": {k[0]: v for k, v in lb_only.items()},
                 "global": glob}
     artifact = {
-        "version": "0.1.0",
+        "version": "0.2.0",
         "target": "shakeup = 1 - spearman(public_rank, private_rank), range [0,2]",
         "validation_split_date": split_date,
         "n_train_comps": len(train), "n_test_comps": len(test),
@@ -320,11 +333,24 @@ def fit_artifact(rows, split_date=SPLIT_DATE, pop_stats=None):
     }
     return artifact, train, test
 
-def _chain(tier, family, n_teams, lb_pct, label):
-    key = "|".join((family, team_bucket(n_teams), lb_bucket(lb_pct)))
-    if key in tier["strata"]:
-        return tier["strata"][key], f"{label} stratum {key}"
+def _chain(tier, family, n_teams, lb_pct, label, code=None):
+    """code known: full code-aware stratum -> (lb,code) -> (lb) -> global.
+    code unknown (None): v0.1 behavior — (family,team,lb) stratum -> (lb) ->
+    global, with a nudge to pass --code (decision #29: pooling code and
+    non-code comps inside one lb bucket mixes medians of 1.07 and 0.00)."""
     lb = lb_bucket(lb_pct)
+    if code is not None:
+        key = "|".join((family, team_bucket(n_teams), lb,
+                        "code" if code else "std"))
+        if key in tier["strata"]:
+            return tier["strata"][key], f"{label} stratum {key}"
+        ck = f"{lb}|{'code' if code else 'std'}"
+        if ck in tier.get("lb_code", {}):
+            return tier["lb_code"][ck], f"{label} lb+construction {ck}"
+    else:
+        # legacy v0.1 stratum (no code dim) is gone from v0.2 artifacts;
+        # fall through to lb bucket.
+        pass
     if lb in tier["lb_bucket"]:
         return tier["lb_bucket"][lb], f"{label} lb-bucket {lb}"
     if tier["global"]:
@@ -339,20 +365,23 @@ def _recent_trusted(artifact):
     g = artifact["recent"]["global"]
     return bool(g) and g["n"] >= MIN_RECENT
 
-def predict(artifact, family, n_teams, lb_pct):
+def predict(artifact, family, n_teams, lb_pct, code=None):
     q = prov = None
     if _recent_trusted(artifact):
-        q, prov = _chain(artifact["recent"], family, n_teams, lb_pct, "recent")
+        q, prov = _chain(artifact["recent"], family, n_teams, lb_pct, "recent", code)
     if q is None:
-        q, prov = _chain(artifact["alltime"], family, n_teams, lb_pct, "all-time")
+        q, prov = _chain(artifact["alltime"], family, n_teams, lb_pct, "all-time", code)
     if q is None:
         return None
     out = {"expected_shakeup_p50": q["p50"], "p75": q["p75"], "p90": q["p90"],
            "n_similar_comps": q["n"], "provenance": prov}
     if q["p90"] is None:
         out["p90_note"] = f"suppressed: needs >= {P90_MIN} similar comps"
+    if code is None:
+        out["hint"] = ("pass --code / --no-code for a sharper estimate: test-set "
+                       "construction is the dominant shakeup factor (v0.2)")
     # all-time context (never the answer — decision #24)
-    aq, aprov = _chain(artifact["alltime"], family, n_teams, lb_pct, "all-time")
+    aq, aprov = _chain(artifact["alltime"], family, n_teams, lb_pct, "all-time", code)
     if aq:
         out["alltime_context_p50"] = aq["p50"]
     g = artifact["recent"]["global"] or artifact["alltime"]["global"]
@@ -369,30 +398,32 @@ def predict(artifact, family, n_teams, lb_pct):
     return out
 
 def _evaluate(recent, alltime, test_rows):
-    glob = recent[2] or alltime[2]
-    if not test_rows or glob is None or alltime[2] is None:
+    glob = recent[3] or alltime[3]
+    if not test_rows or glob is None or alltime[3] is None:
         return {"error": "insufficient data for holdout"}
-    r_pack = {"strata": {"|".join(k): v for k, v in recent[0].items()},
-              "lb_bucket": {k[0]: v for k, v in recent[1].items()},
-              "global": recent[2]}
-    a_pack = {"strata": {"|".join(k): v for k, v in alltime[0].items()},
-              "lb_bucket": {k[0]: v for k, v in alltime[1].items()},
-              "global": alltime[2]}
+    def _pk(t):
+        return {"strata": {"|".join(k): v for k, v in t[0].items()},
+                "lb_code": {"|".join(k): v for k, v in t[1].items()},
+                "lb_bucket": {k[0]: v for k, v in t[2].items()},
+                "global": t[3]}
+    r_pack, a_pack = _pk(recent), _pk(alltime)
     art_like = {"recent": r_pack, "alltime": a_pack}
     pred, actual = [], []
     for r in test_rows:
         q = None
         if _recent_trusted(art_like):
-            q, _ = _chain(r_pack, r["family"], r["n_ranked_teams"], r["lb_pct"], "recent")
+            q, _ = _chain(r_pack, r["family"], r["n_ranked_teams"], r["lb_pct"],
+                          "recent", r.get("code"))
         if q is None:
-            q, _ = _chain(a_pack, r["family"], r["n_ranked_teams"], r["lb_pct"], "all-time")
+            q, _ = _chain(a_pack, r["family"], r["n_ranked_teams"], r["lb_pct"],
+                          "all-time", r.get("code"))
         pred.append(q["p50"])
         actual.append(r["shakeup"])
     mae_model = sum(abs(p - a) for p, a in zip(pred, actual)) / len(actual)
     # decision #28 (review r3): BOTH baselines reported, so the recency
     # contribution and the stratification contribution are separable.
     out = {"n_test": len(actual), "mae_model": round(mae_model, 4)}
-    for label, tier in (("recent", recent[2]), ("alltime", alltime[2])):
+    for label, tier in (("recent", recent[3]), ("alltime", alltime[3])):
         if tier:
             gm = tier["p50"]
             mb = sum(abs(gm - a) for a in actual) / len(actual)
